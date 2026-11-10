@@ -1,0 +1,12 @@
+[project]
+name = "quantum-lock-scanner"
+version = "0.0.1"
+description = "Finds encryption in a Microsoft Azure account and marks which locks quantum computers could break."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = []  # nothing extra needed yet - only Python's built-in parts
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
