@@ -15,6 +15,10 @@ Each lock gets a traffic-light verdict:
 | **GREEN** | Already quantum-safe. |
 | **UNKNOWN** | The scanner doesn't recognise it yet. A human should look. |
 
+The report is sorted by urgency: **MOST URGENT** (data that can be recorded today and
+cracked later, like old website handshakes), then **PLAN AHEAD** (risks that only matter
+later, like RSA certificates), then **CHECK BY HAND**, then **ALREADY SAFE**.
+
 ## Why this matters
 
 Attackers can record encrypted traffic today and decrypt it years later, once quantum
@@ -73,7 +77,6 @@ The checks use stand-in answers, so they never touch real Azure or real websites
 ## Status
 
 Early but working (v0.0.1). Planned next:
-- rank findings by urgency (a weak handshake leaks today's data; a weak certificate doesn't)
 - more Azure services (App Service, Front Door, SQL)
 - export the findings as a CBOM (Cryptography Bill of Materials)
 

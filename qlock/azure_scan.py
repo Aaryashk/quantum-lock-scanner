@@ -12,7 +12,7 @@ the three things we care about - where, kind, size - onto our index cards.
 import base64
 
 from qlock.azure_cli import AzureError, run_az
-from qlock.locks import Lock
+from qlock.locks import CERTIFICATE, KEY, STORAGE, Lock
 
 # Elliptic-curve ("EC") locks are named by their curve. The number is the key size.
 CURVE_SIZES = {"P-256": 256, "P-256K": 256, "P-384": 384, "P-521": 521}
@@ -59,7 +59,7 @@ def lock_from_vault_key(vault: str, key_doc: dict) -> Lock:
         size = rsa_size_from_modulus(key["n"])
     else:
         size = 0
-    return Lock(where=f"Key Vault '{vault}': key '{name}'", kind=kind, size=size)
+    return Lock(where=f"Key Vault '{vault}': key '{name}'", kind=kind, size=size, job=KEY)
 
 
 def lock_from_vault_certificate(vault: str, cert_doc: dict) -> Lock:
@@ -67,13 +67,15 @@ def lock_from_vault_certificate(vault: str, cert_doc: dict) -> Lock:
     kind = normalize_key_type(props.get("keyType", ""))
     size = props.get("keySize") or CURVE_SIZES.get(props.get("curve") or "", 0)
     name = cert_doc.get("name", "?")
-    return Lock(where=f"Key Vault '{vault}': certificate '{name}'", kind=kind, size=size)
+    return Lock(where=f"Key Vault '{vault}': certificate '{name}'", kind=kind, size=size,
+                job=CERTIFICATE)
 
 
 def lock_from_storage_account(account: dict) -> Lock:
     # Azure always locks stored files with AES-256 (whether Microsoft or the
     # customer holds the key), so every storage account gets the same card.
-    return Lock(where=f"Storage account '{account.get('name', '?')}'", kind="AES", size=256)
+    return Lock(where=f"Storage account '{account.get('name', '?')}'", kind="AES", size=256,
+                job=STORAGE)
 
 
 # ---------- the walk itself ----------

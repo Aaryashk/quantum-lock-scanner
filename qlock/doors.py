@@ -19,7 +19,7 @@ import re
 import shutil
 import subprocess
 
-from qlock.locks import Lock
+from qlock.locks import CERTIFICATE, HANDSHAKE, Lock
 
 # Handshakes the knocker offers, best first. Offering old ones too means a website that
 # doesn't know the new handshake still answers (instead of looking like it's down).
@@ -135,7 +135,12 @@ def inspect_door(host: str, run) -> tuple[list[Lock], list[str]]:
 
     handshake = read_handshake(hello)
     if handshake:
-        locks.append(Lock(where=f"Door '{host}': handshake", kind=handshake[0], size=handshake[1]))
+        locks.append(Lock(where=f"Door '{host}': handshake", kind=handshake[0], size=handshake[1],
+                          job=HANDSHAKE))
+    else:
+        # Without a separate handshake, the ID card's lock may be protecting the secret too.
+        notes.append(f"Couldn't read the handshake at door '{host}'. A human should check it, "
+                     "because its ID card may also be guarding the conversation.")
     if protocol != "TLSv1.3":
         notes.append(f"Door '{host}' uses {protocol}. It can't use the new quantum-safe "
                      "handshake until it's upgraded to TLSv1.3.")
@@ -143,7 +148,7 @@ def inspect_door(host: str, run) -> tuple[list[Lock], list[str]]:
     certificate = read_certificate(run(["x509", "-noout", "-text"], stdin=hello))
     if certificate:
         locks.append(Lock(where=f"Door '{host}': ID card (certificate)",
-                          kind=certificate[0], size=certificate[1]))
+                          kind=certificate[0], size=certificate[1], job=CERTIFICATE))
     return locks, notes
 
 
