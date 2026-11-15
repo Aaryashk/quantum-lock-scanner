@@ -3,13 +3,17 @@
     python -m qlock --demo                  scan a pretend company (no Azure needed)
     python -m qlock --azure                 look (read-only) at your signed-in Azure subscription
     python -m qlock --host example.com      check one website's door (no Azure needed)
+    add  --cbom reports/cbom.json           also save a CBOM file (standard ingredients list)
 """
 
 import argparse
+import json
+import os
 import sys
 
 from qlock.azure_cli import AzureError, run_az
 from qlock.azure_scan import find_web_doors, scan_azure
+from qlock.cbom import build_cbom
 from qlock.doors import find_openssl, inspect_doors, make_runner
 from qlock.report import build_report
 from qlock.sample_data import DEMO_COMPANY, DEMO_LOCKS
@@ -37,10 +41,13 @@ def main() -> None:
     parser.add_argument("--azure", action="store_true", help="look (read-only) at your signed-in Azure subscription")
     parser.add_argument("--host", action="append", default=[], metavar="ADDRESS",
                         help="check a website's door, e.g. --host example.com (can repeat)")
+    parser.add_argument("--cbom", metavar="FILE",
+                        help="also save the findings as a CBOM (CycloneDX 1.6 JSON) file")
     args = parser.parse_args()
 
     if args.demo:
         print(build_report(DEMO_COMPANY, DEMO_LOCKS))
+        save_cbom(args.cbom, DEMO_COMPANY, DEMO_LOCKS)
         return
 
     if not (args.azure or args.host):
@@ -65,6 +72,16 @@ def main() -> None:
     door_locks, door_notes = check_doors(list(dict.fromkeys(hosts + args.host)))
     print()
     print(build_report(title, locks + door_locks, notes + door_notes))
+    save_cbom(args.cbom, title, locks + door_locks)
+
+
+def save_cbom(path: str | None, company: str, locks) -> None:
+    if not path:
+        return
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)  # e.g. creates reports/
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(build_cbom(company, locks), f, indent=2)
+    print(f"CBOM saved to {path} ({len(locks)} locks).")
 
 
 if __name__ == "__main__":

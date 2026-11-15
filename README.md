@@ -66,6 +66,16 @@ Your own Azure subscription (read-only), including every public web address foun
 python -m qlock --azure
 ```
 
+Add `--cbom` to any of these to also save a **CBOM** (Cryptography Bill of Materials):
+a standard "ingredients list" of every lock found, in the CycloneDX 1.6 format that
+other security tools can read.
+
+```
+python -m qlock --azure --cbom reports/cbom.json
+```
+
+The `reports/` folder is ignored by git, so real scan results are never published by accident.
+
 ## Run the automatic checks
 
 ```
@@ -78,7 +88,6 @@ The checks use stand-in answers, so they never touch real Azure or real websites
 
 Early but working (v0.0.1). Planned next:
 - more Azure services (App Service, Front Door, SQL)
-- export the findings as a CBOM (Cryptography Bill of Materials)
 
 ## Licence
 
