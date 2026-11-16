@@ -1,7 +1,7 @@
 # Quantum Lock Scanner
 
-A free, open-source tool that checks a company's **Microsoft Azure** cloud and public
-websites for encryption ("locks") that future quantum computers could break.
+A free, open-source tool that checks a company's **Microsoft Azure** cloud, public
+websites and remote-login (SSH) servers for encryption ("locks") that future quantum computers could break.
 
 Think of it as a building inspector. It walks every corridor, reads the label on every
 lock, and writes a report. **It only looks. It never changes anything.**
@@ -34,9 +34,12 @@ This tool does that step.
 | Azure Key Vault | Every key and certificate: RSA, EC, AES and their sizes |
 | Azure Storage | Data-at-rest encryption (AES-256) |
 | Public websites | The certificate ("ID card") and the TLS handshake each site uses |
+| SSH servers | The handshake and ID-key type a modern SSH client would end up using |
 
 For websites it can tell the old handshake (`X25519`) from the new hybrid quantum-safe
-one (`X25519MLKEM768`).
+one (`X25519MLKEM768`). For SSH it spots the quantum-safe handshakes
+(`mlkem768x25519-sha256`, `sntrup761x25519-sha512`). The SSH check only reads the
+server's menu and hangs up: it never logs in.
 
 ## Requirements
 
@@ -58,6 +61,12 @@ Any public website:
 
 ```
 python -m qlock --host example.com
+```
+
+Any SSH server (add `:port` if it isn't 22):
+
+```
+python -m qlock --ssh github.com
 ```
 
 Your own Azure subscription (read-only), including every public web address found in it:
@@ -88,6 +97,7 @@ The checks use stand-in answers, so they never touch real Azure or real websites
 
 Early but working (v0.0.1). Planned next:
 - more Azure services (App Service, Front Door, SQL)
+- IKEv2 VPN tunnels
 
 ## Licence
 

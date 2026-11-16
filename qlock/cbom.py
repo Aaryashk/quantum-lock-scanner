@@ -23,9 +23,9 @@ from qlock.locks import CERTIFICATE, HANDSHAKE, KEY, Lock, judge_lock, rank_urge
 
 def primitive_for(lock: Lock) -> str:
     kind = lock.kind.upper()
-    if "MLKEM" in kind or kind == "ML-KEM":
+    if "MLKEM" in kind or kind == "ML-KEM" or "SNTRUP" in kind:
         return "kem"
-    if kind == "ML-DSA" or kind == "ED25519":
+    if kind == "ML-DSA" or "MLDSA" in kind or kind == "ED25519":
         return "signature"
     if kind in ("AES", "3DES"):
         return "block-cipher"
@@ -47,7 +47,9 @@ def quantum_level(kind: str, size: int) -> int | None:
     Return None if we don't know - then the CBOM simply leaves the rating out.
     """
     kind = kind.upper()
-    # The hybrid handshake (e.g. X25519MLKEM768) is rated by its ML-KEM-768 half.
+    # The hybrid handshake (e.g. X25519MLKEM768) is rated by its ML-KEM half.
+    if "MLKEM1024" in kind:
+        return 5
     if "MLKEM" in kind:
         return 3
     if kind == "ML-KEM":
@@ -56,7 +58,8 @@ def quantum_level(kind: str, size: int) -> int | None:
         return 1
     if kind == "AES" and size == 256:
         return 5
-    if kind in ("RSA", "EC", "X25519", "X448", "PRIME256V1", "SECP256R1", "SECP384R1", "ECDH", "DH", "ED25519"):
+    if kind in ("RSA", "EC", "X25519", "X448", "PRIME256V1", "SECP256R1", "SECP384R1", "SECP521R1",
+                "ECDH", "DH", "ED25519"):
         return 0
     return None
 

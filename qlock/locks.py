@@ -66,7 +66,13 @@ def judge_lock(kind: str, size: int) -> str:
     # Any hybrid with ML-KEM inside is safe; the old ones on their own are not.
     if "MLKEM" in kind:
         return GREEN
-    if kind in ("X25519", "X448", "PRIME256V1", "SECP256R1", "SECP384R1", "ECDH", "DH"):
+    # SSH's other hybrid (NTRU Prime + X25519): quantum-resistant, though not a NIST standard.
+    if "SNTRUP" in kind:
+        return GREEN
+    # SSH's hybrid ID key (ML-DSA + Ed25519).
+    if "MLDSA" in kind:
+        return GREEN
+    if kind in ("X25519", "X448", "PRIME256V1", "SECP256R1", "SECP384R1", "SECP521R1", "ECDH", "DH"):
         return RED
     if kind == "ED25519":
         return RED

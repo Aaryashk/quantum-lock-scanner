@@ -3,6 +3,7 @@
     python -m qlock --demo                  scan a pretend company (no Azure needed)
     python -m qlock --azure                 look (read-only) at your signed-in Azure subscription
     python -m qlock --host example.com      check one website's door (no Azure needed)
+    python -m qlock --ssh server.example    check one SSH (remote-login) door, read-only
     add  --cbom reports/cbom.json           also save a CBOM file (standard ingredients list)
 """
 
@@ -16,6 +17,7 @@ from qlock.azure_scan import find_web_doors, scan_azure
 from qlock.cbom import build_cbom
 from qlock.doors import find_openssl, inspect_doors, make_runner
 from qlock.report import build_report
+from qlock.ssh import inspect_ssh_doors, make_ssh_runner
 from qlock.sample_data import DEMO_COMPANY, DEMO_LOCKS
 
 NO_OPENSSL = ("Doors not checked: needs OpenSSL 3.5 or newer (it comes with Git for Windows "
@@ -41,6 +43,8 @@ def main() -> None:
     parser.add_argument("--azure", action="store_true", help="look (read-only) at your signed-in Azure subscription")
     parser.add_argument("--host", action="append", default=[], metavar="ADDRESS",
                         help="check a website's door, e.g. --host example.com (can repeat)")
+    parser.add_argument("--ssh", action="append", default=[], metavar="ADDRESS",
+                        help="check an SSH door, e.g. --ssh server.example or host:2222 (can repeat)")
     parser.add_argument("--cbom", metavar="FILE",
                         help="also save the findings as a CBOM (CycloneDX 1.6 JSON) file")
     args = parser.parse_args()
@@ -50,11 +54,11 @@ def main() -> None:
         save_cbom(args.cbom, DEMO_COMPANY, DEMO_LOCKS)
         return
 
-    if not (args.azure or args.host):
+    if not (args.azure or args.host or args.ssh):
         parser.print_help()
         return
 
-    locks, notes, title = [], [], "websites"
+    locks, notes, title = [], [], "public doors"
     if args.azure:
         try:
             subscription = run_az(["account", "show"]).get("name", "?")
@@ -70,6 +74,10 @@ def main() -> None:
         hosts = []
 
     door_locks, door_notes = check_doors(list(dict.fromkeys(hosts + args.host)))
+    if args.ssh:
+        print(f"Checking {len(args.ssh)} SSH door(s)...")
+        ssh_locks, ssh_notes = inspect_ssh_doors(args.ssh, make_ssh_runner())
+        door_locks, door_notes = door_locks + ssh_locks, door_notes + ssh_notes
     print()
     print(build_report(title, locks + door_locks, notes + door_notes))
     save_cbom(args.cbom, title, locks + door_locks)
