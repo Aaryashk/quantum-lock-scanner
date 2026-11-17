@@ -73,6 +73,9 @@ python -m qlock --ssh github.com
 A VPN gateway (IKEv2, UDP port 500). **Experimental**, and **only for gateways you own or
 have permission to test**: the scanner sends one "let's start" message (at most three),
 so the gateway may log a short, unfinished attempt. It never logs in.
+Tested so far against strongSwan 6.0.4 set up as: Curve25519, Curve25519 + ML-KEM-768,
+MODP-2048, and the NIST curves ECP-256/384/521 (including the gateway's "come back with
+a ticket" cookie step). Other brands (Cisco, Fortinet, Palo Alto...) are not tested yet.
 
 ```
 python -m qlock --vpn vpn.example.com
@@ -106,7 +109,7 @@ The checks use stand-in answers, so they never touch real Azure or real websites
 
 Early but working (v0.0.1). Planned next:
 - more Azure services (App Service, Front Door, SQL)
-- test the VPN check against more real gateways
+- test the VPN check against other gateway brands
 
 ## Licence
 

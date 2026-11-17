@@ -6,7 +6,8 @@ import unittest
 
 from qlock.ike import (ADDKE1, COOKIE, ENCR, INVALID_KE_PAYLOAD, KE_METHOD, MAX_SENDS,
                        NO_PROPOSAL_CHOSEN, NOTIFY, SA, USE_PPK, _notify_body, _payload,
-                       _proposal, build_hello, ike_group_family, inspect_vpn, read_reply)
+                       NIST_CURVES, _proposal, build_hello, curve_multiply, ike_group_family,
+                       inspect_vpn, key_share, read_reply)
 from qlock.locks import GREEN, RED, UNKNOWN, judge_lock
 
 # A REAL answer from a Cisco VPN gateway (Wireshark sample capture
@@ -102,9 +103,29 @@ class TestReadingTheAnswer(unittest.TestCase):
         self.assertIn("MODP-2048", locks[0].where)
 
     def test_group_we_cannot_build_becomes_a_note(self):
-        locks, notes = inspect_vpn("vpn.example", 500, FakeGateway(wants(19)))
+        locks, notes = inspect_vpn("vpn.example", 500, FakeGateway(wants(28)))  # brainpool
         self.assertEqual(locks, [])
-        self.assertIn("ECP-256", notes[0])
+        self.assertIn("group 28", notes[0])
+
+    def test_asks_again_with_a_nist_curve(self):
+        gateway = FakeGateway(wants(19), lambda spi: gateway_reply(spi, [chose(19)]))
+        locks, _ = inspect_vpn("vpn.example", 500, gateway)
+        self.assertEqual([offered_group(m) for m in gateway.sent], [31, 19])
+        self.assertIn("ECP-256", locks[0].where)
+
+    def test_nist_curve_numbers_are_right(self):
+        # A typo in any curve number would break one of these two facts.
+        for group, (p, b, gx, gy, n) in NIST_CURVES.items():
+            self.assertEqual((gy * gy - (gx ** 3 - 3 * gx + b)) % p, 0)  # G is on the curve
+            self.assertIsNone(curve_multiply(n, (gx, gy), p))           # n x G = zero point
+
+    def test_nist_key_share_is_a_point_on_the_curve(self):
+        for group in NIST_CURVES:
+            p, b, *_ = NIST_CURVES[group]
+            share = key_share(group)
+            half = len(share) // 2
+            x, y = int.from_bytes(share[:half], "big"), int.from_bytes(share[half:], "big")
+            self.assertEqual((y * y - (x ** 3 - 3 * x + b)) % p, 0)
 
     def test_cookie_is_handed_back(self):
         gateway = FakeGateway(lambda spi: gateway_reply(spi, [notify(COOKIE, b"ticket-123")]),

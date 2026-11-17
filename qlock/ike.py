@@ -48,8 +48,29 @@ GROUP_LABELS = {2: "MODP-1024", 5: "MODP-1536", 14: "MODP-2048", 15: "MODP-3072"
 OFFERED_GROUPS = [31, 32, 19, 20, 21, 14, 15, 16, 5, 2]
 
 # Groups we can make a believable key share for, with the share's length in bytes.
-# (Any 32 bytes is a valid Curve25519 key; the curves 19-21 need real maths, so we skip them.)
-KEY_SHARE_BYTES = {31: 32, 32: 56, 2: 128, 5: 192, 14: 256, 15: 384, 16: 512}
+# (Any 32 bytes is a valid Curve25519 key. The NIST curves 19-21 need a real point on
+# the curve, so for those we do the curve maths below.)
+KEY_SHARE_BYTES = {31: 32, 32: 56, 2: 128, 5: 192, 14: 256, 15: 384, 16: 512,
+                   19: 64, 20: 96, 21: 132}
+
+# The NIST curves (FIPS 186-5): y^2 = x^3 - 3x + b (mod p), starting point G, G's order n.
+NIST_CURVES = {
+    19: (0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff,
+         0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b,
+         0x6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296,
+         0x4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5,
+         0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551),
+    20: (0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff,
+         0xb3312fa7e23ee7e4988e056be3f82d19181d9c6efe8141120314088f5013875ac656398d8a2ed19d2a85c8edd3ec2aef,
+         0xaa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab7,
+         0x3617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f,
+         0xffffffffffffffffffffffffffffffffffffffffffffffffc7634d81f4372ddf581a0db248b0a77aecec196accc52973),
+    21: (2 ** 521 - 1,
+         0x0051953eb9618e1c9a1f929a21a0b68540eea2da725b99b315f3b8b489918ef109e156193951ec7e937b1652c0bd3bb1bf073573df883d2c34f1ef451fd46b503f00,
+         0x00c6858e06b70404e9cd9e3ecb662395b4429c648139053fb521f828af606b4d3dbaa14b5e77efe75928fe1dc127a2ffa8de3348b3c1856a429bf97e7e31c2e5bd66,
+         0x011839296a789a3bc0045c8a5fb42c7d1bd998f54449579b446817afbd17273e662c97ee72995ef42640c550b9013fad0761353c7086a272c24088be94769fd16650,
+         0x01fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa51868783bf2f966b7fcc0148f709a5d03bb5c9b8899c47aebb6fb71e91386409),
+}
 
 MAX_SENDS = 3
 
@@ -96,7 +117,41 @@ def _notify_body(kind: int, data: bytes = b"") -> bytes:
     return struct.pack(">BBH", 0, 0, kind) + data
 
 
+def _curve_add(a, b, p):
+    """Add two points on a NIST curve (None stands for the 'zero' point)."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    (x1, y1), (x2, y2) = a, b
+    if x1 == x2 and (y1 + y2) % p == 0:
+        return None
+    if a == b:
+        slope = (3 * x1 * x1 - 3) * pow(2 * y1, -1, p) % p
+    else:
+        slope = (y2 - y1) * pow(x2 - x1, -1, p) % p
+    x3 = (slope * slope - x1 - x2) % p
+    return x3, (slope * (x1 - x3) - y1) % p
+
+
+def curve_multiply(k: int, point, p: int):
+    """k x point, by doubling and adding (like long multiplication in binary)."""
+    result = None
+    while k:
+        if k & 1:
+            result = _curve_add(result, point, p)
+        point = _curve_add(point, point, p)
+        k >>= 1
+    return result
+
+
 def key_share(group: int) -> bytes:
+    if group in NIST_CURVES:  # a real public key: secret number x starting point
+        p, _, gx, gy, n = NIST_CURVES[group]
+        half = KEY_SHARE_BYTES[group] // 2
+        secret = int.from_bytes(os.urandom(half + 8), "big") % (n - 1) + 1
+        x, y = curve_multiply(secret, (gx, gy), p)
+        return x.to_bytes(half, "big") + y.to_bytes(half, "big")
     share = bytearray(os.urandom(KEY_SHARE_BYTES[group]))
     if group not in (31, 32):  # MODP: keep the number below the group's prime, and not tiny
         share[0] = (share[0] & 0x7F) | 0x40
