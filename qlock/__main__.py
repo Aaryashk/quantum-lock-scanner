@@ -4,6 +4,7 @@
     python -m qlock --azure                 look (read-only) at your signed-in Azure subscription
     python -m qlock --host example.com      check one website's door (no Azure needed)
     python -m qlock --ssh server.example    check one SSH (remote-login) door, read-only
+    python -m qlock --vpn vpn.example       check one VPN (IKEv2) door - only gateways you may test
     add  --cbom reports/cbom.json           also save a CBOM file (standard ingredients list)
 """
 
@@ -17,6 +18,7 @@ from qlock.azure_scan import find_web_doors, scan_azure
 from qlock.cbom import build_cbom
 from qlock.doors import find_openssl, inspect_doors, make_runner
 from qlock.report import build_report
+from qlock.ike import inspect_vpn_doors, make_vpn_runner
 from qlock.ssh import inspect_ssh_doors, make_ssh_runner
 from qlock.sample_data import DEMO_COMPANY, DEMO_LOCKS
 
@@ -45,6 +47,8 @@ def main() -> None:
                         help="check a website's door, e.g. --host example.com (can repeat)")
     parser.add_argument("--ssh", action="append", default=[], metavar="ADDRESS",
                         help="check an SSH door, e.g. --ssh server.example or host:2222 (can repeat)")
+    parser.add_argument("--vpn", action="append", default=[], metavar="ADDRESS",
+                        help="check a VPN (IKEv2) gateway you own or may test, e.g. --vpn vpn.example")
     parser.add_argument("--cbom", metavar="FILE",
                         help="also save the findings as a CBOM (CycloneDX 1.6 JSON) file")
     args = parser.parse_args()
@@ -54,7 +58,7 @@ def main() -> None:
         save_cbom(args.cbom, DEMO_COMPANY, DEMO_LOCKS)
         return
 
-    if not (args.azure or args.host or args.ssh):
+    if not (args.azure or args.host or args.ssh or args.vpn):
         parser.print_help()
         return
 
@@ -78,6 +82,10 @@ def main() -> None:
         print(f"Checking {len(args.ssh)} SSH door(s)...")
         ssh_locks, ssh_notes = inspect_ssh_doors(args.ssh, make_ssh_runner())
         door_locks, door_notes = door_locks + ssh_locks, door_notes + ssh_notes
+    if args.vpn:
+        print(f"Checking {len(args.vpn)} VPN door(s)...")
+        vpn_locks, vpn_notes = inspect_vpn_doors(args.vpn, make_vpn_runner())
+        door_locks, door_notes = door_locks + vpn_locks, door_notes + vpn_notes
     print()
     print(build_report(title, locks + door_locks, notes + door_notes))
     save_cbom(args.cbom, title, locks + door_locks)

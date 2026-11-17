@@ -50,6 +50,8 @@ def quantum_level(kind: str, size: int) -> int | None:
     # The hybrid handshake (e.g. X25519MLKEM768) is rated by its ML-KEM half.
     if "MLKEM1024" in kind:
         return 5
+    if "MLKEM512" in kind:
+        return 1
     if "MLKEM" in kind:
         return 3
     if kind == "ML-KEM":
